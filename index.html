@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="fa" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>دستیار فروش تیمی</title>
+<link rel="manifest" href="manifest.json"><meta name="theme-color" content="#1E2A3A"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--ink:#1E2A3A;--bg:#EEF1F4;--card:#fff;--pri:#2F5D8A;--acc:#C8962E;--bad:#B3402F;--ok:#2E7D5B;--line:#D5DBE2}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 Tahoma,"Segoe UI",sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--ink);color:#fff;padding:8px 12px;display:flex;align-items:center;gap:8px;padding-top:max(8px,env(safe-area-inset-top))}
+header b{flex:1}header small{opacity:.8;font-size:12px}
+main{padding:12px 12px 90px;max-width:640px;margin:auto}
+nav{position:fixed;bottom:0;inset-inline:0;display:flex;background:#fff;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;border:0;background:none;padding:12px 2px;font:inherit;font-size:14px;color:#5b6775}
+nav button.on{color:var(--pri);font-weight:700;box-shadow:inset 0 -3px var(--pri)}
+h2{font-size:19px;margin:6px 0 10px}h3{font-size:16px;margin:16px 0 6px}
+label{display:block;margin:10px 0 2px;font-size:14px;color:#44505e}
+input,select,textarea{width:100%;min-height:46px;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+textarea{min-height:80px}
+.btn{display:inline-block;min-height:46px;padding:9px 16px;border:0;border-radius:8px;background:var(--pri);color:#fff;font:inherit;margin:6px 0 0 6px}
+.btn.s{background:#fff;color:var(--pri);border:1px solid var(--pri)}.btn.d{background:var(--bad)}.btn.a{background:var(--acc);color:#1b1500}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0}
+.it{cursor:pointer}.it b{display:block}.tag{display:inline-block;font-size:12px;background:#E3EAF2;border-radius:6px;padding:0 7px;margin-inline-end:4px}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:8px}.g .card{margin:0;text-align:center}.g b{font-size:24px;display:block;color:var(--pri)}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{border-bottom:1px solid var(--line);padding:5px 3px;text-align:start}
+.mut{color:#66717f;font-size:13px}.err{color:var(--bad)}
+#toast{position:fixed;bottom:76px;inset-inline:12px;background:var(--ink);color:#fff;padding:10px 14px;border-radius:8px;display:none;z-index:9}#toast.e{background:var(--bad)}
+</style></head><body>
+<header><b>دستیار فروش تیمی</b><small id="stt"></small><button class="btn a" style="margin:0;min-height:38px" onclick="go('form')">+ مشتری</button></header>
+<main id="v"></main>
+<nav id="nv"></nav><div id="toast"></div>
+<script>
+const G=['فقط ایران‌خودرو','فقط سایپا','هردو','متفرقه'],
+R0=['قیمت','کمبود نقدینگی','موجودی کافی','عدم نیاز فعلی','خرید از تأمین‌کننده دیگر','عدم تمایل مشتری','نبود محصول موردنیاز','مشتری حضور نداشت','مراجعه ناموفق','سایر'],
+P=['کم','متوسط','زیاد','نامشخص'],S=['فعال','غیرفعال','بالقوه'];
+let db,C=[],V=[],M={reasons:R0,visitors:[],lastSync:''},tab='home',arg,q='',fg='',fv='',loc={},imp=null;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nd=s=>String(s||'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const fa=d=>d?new Date(d).toLocaleString('fa-IR'):'—',fd=d=>d?new Date(d).toLocaleDateString('fa-IR'):'—';
+const money=n=>(+n||0).toLocaleString('fa-IR')+' ریال';
+function toast(m,e){const t=$('#toast');t.textContent=m;t.className=e?'e':'';t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',e?5000:2500)}
+/* ---------- پایگاه داده ---------- */
+function init(){return new Promise((ok,no)=>{const r=indexedDB.open('dft',1);
+r.onupgradeneeded=()=>['c','v','m'].forEach(n=>r.result.createObjectStore(n,{keyPath:n=='m'?'k':'id'}));
+r.onsuccess=()=>{db=r.result;ok()};r.onerror=()=>no(r.error)})}
+const rq=r=>new Promise((ok,no)=>{r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
+const st=(n,m)=>db.transaction(n,m).objectStore(n);
+const put=(n,o)=>rq(st(n,'readwrite').put(o)),all=n=>rq(st(n).getAll()),clr=n=>rq(st(n,'readwrite').clear());
+async function load(){C=await all('c');V=await all('v');(await all('m')).forEach(x=>M[x.k]=x.v)}
+const saveM=k=>put('m',{k,v:M[k]});
+/* ---------- ابزار ---------- */
+const live=()=>C.filter(c=>!c.del);
+const vis=id=>V.filter(v=>v.cid==id).sort((a,b)=>b.at.localeCompare(a.at));
+const pst=c=>{const v=vis(c.id);return !v.length?'هنوز ویزیت نشده':v[0].bought?'خرید انجام شده':'خرید انجام نشده'};
+const pend=()=>C.concat(V).filter(x=>x.sync=='pending').length;
+const opts=(a,s,e)=>(e?`<option value="">${e}</option>`:'')+a.map(x=>`<option ${s==x?'selected':''}>${esc(x)}</option>`).join('');
+const gv=id=>$('#'+id).value.trim();
+function stat(){$('#stt').textContent=(navigator.onLine?'آنلاین':'آفلاین')+' | در انتظار ارسال: '+pend().toLocaleString('fa-IR')}
+addEventListener('online',stat);addEventListener('offline',stat);
+function go(t,a){tab=t;arg=a;render()}
+function render(){const f={home,list,form,det,vf,rep,more}[tab];$('#v').innerHTML=f(arg);if(tab=='list')fl();if(tab=='rep')rp();
+const g={home:'home',list:'list',form:'list',det:'list',vf:'list',rep:'rep',more:'more'}[tab];
+$('#nv').innerHTML=[['home','خانه'],['list','مشتریان'],['rep','گزارش'],['more','بیشتر']].map(x=>`<button class="${x[0]==g?'on':''}" onclick="go('${x[0]}')">${x[1]}</button>`).join('');
+stat();scrollTo(0,0);if(tab=='form'&&!arg)setTimeout(()=>gps(fillLoc),400)}
+/* ---------- خانه ---------- */
+function home(){const L=live(),td=new Date().toISOString().slice(0,10),
+nv=L.filter(c=>!vis(c.id).length).length,fu=L.filter(c=>{const v=vis(c.id)[0];const n=v?v.next:c.next;return n&&n<=td}).length;
+return `<h2>داشبورد</h2><div class="g">
+<div class="card"><b>${L.length.toLocaleString('fa-IR')}</b>مشتری</div>
+<div class="card"><b>${(L.length-nv).toLocaleString('fa-IR')}</b>ویزیت‌شده</div>
+<div class="card"><b>${V.filter(v=>v.at.slice(0,10)==td).length.toLocaleString('fa-IR')}</b>ویزیت امروز</div>
+<div class="card"><b>${fu.toLocaleString('fa-IR')}</b>پیگیری سررسیده</div></div>
+<button class="btn" onclick="go('form')">افزودن مشتری</button><button class="btn s" onclick="go('list')">فهرست مشتریان</button>
+${L.length?'':'<p class="mut">هنوز مشتری ثبت نشده است. با «افزودن مشتری» شروع کنید یا از «بیشتر» فایل CSV وارد کنید.</p>'}`}
+/* ---------- فهرست ---------- */
+function list(){return `<h2>مشتریان</h2><input placeholder="جست‌وجوی نام، فروشگاه یا شماره" value="${esc(q)}" oninput="q=this.value;fl()">
+<div class="g" style="margin-top:8px"><select onchange="fg=this.value;fl()">${opts(G,fg,'همه انواع کالا')}</select>
+<select onchange="fv=this.value;fl()">${opts(M.visitors,fv,'همه ویزیتورها')}</select></div><div id="L"></div>`}
+function fl(){const k=nd(q).toLowerCase();
+const r=live().filter(c=>(!k||nd([c.name,c.shop,c.phone,c.phones2].join(' ')).toLowerCase().includes(k))&&(!fg||c.goods==fg)&&(!fv||c.visitor==fv));
+$('#L').innerHTML=r.length?r.map(c=>`<div class="card it" onclick="go('det','${c.id}')"><b>${esc(c.name)}</b>${esc(c.shop)}<br><span class="tag">${esc(c.goods||'تعیین‌نشده')}</span><span class="tag">${pst(c)}</span>${c.visitor?`<span class="tag">${esc(c.visitor)}</span>`:''}${c.sync=='pending'?'<span class="tag">در انتظار ارسال</span>':''}</div>`).join(''):'<p class="mut">مشتری‌ای پیدا نشد.</p>'}
+/* ---------- GPS ---------- */
+function gps(cb){if(!navigator.geolocation)return toast('این دستگاه موقعیت‌یابی را پشتیبانی نمی‌کند. مختصات را دستی وارد کنید.',1);
+toast('در حال دریافت موقعیت...');let best=null,done=false,w,t;
+const fin=()=>{if(done)return;done=true;navigator.geolocation.clearWatch(w);clearTimeout(t);best?(cb(best.latitude,best.longitude,Math.round(best.accuracy)),toast('موقعیت ثبت شد، دقت '+Math.round(best.accuracy)+' متر')):toast('موقعیت دریافت نشد. دوباره تلاش کنید.',1)};
+w=navigator.geolocation.watchPosition(p=>{if(!best||p.coords.accuracy<best.accuracy)best=p.coords;if(best.accuracy<=15)fin()},
+e=>{if(best)return fin();if(done)return;done=true;navigator.geolocation.clearWatch(w);clearTimeout(t);toast(e.code==1?'دسترسی به مکان رد شد. در تنظیمات اندروید > برنامه‌ها > این برنامه > مجوزها، مکان را فعال کنید.':e.code==2?'موقعیت در دسترس نیست. GPS گوشی را روشن کنید و به فضای باز بروید.':'زمان دریافت موقعیت تمام شد. دوباره تلاش کنید.',1)},
+{enableHighAccuracy:true,timeout:20000,maximumAge:0});t=setTimeout(fin,15000)}
+function fillLoc(a,b,k){if(!$('#la'))return;$('#la').value=a;$('#lo').value=b;loc={src:'GPS',at:new Date().toISOString(),acc:k};$('#lc').textContent='GPS، دقت '+k+' متر'}
+function shareLoc(n,a,b){if(a===''||b===''||isNaN(+a)||isNaN(+b))return toast('ابتدا موقعیت را ثبت کنید.',1);const u='https://maps.google.com/?q='+a+','+b,t=(n?n+'\n':'')+u;
+if(navigator.share)navigator.share({title:n||'موقعیت',text:t}).catch(()=>{});
+else if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>toast('نام و لینک نقشه کپی شد؛ در پیام‌رسان بچسبانید'),()=>prompt('این متن را کپی کنید:',t));else prompt('این متن را کپی کنید:',t)}
+/* ---------- فرم مشتری ---------- */
+function form(id){const c=id?C.find(x=>x.id==id):{};loc={src:c.locSrc||'',at:c.locAt||'',acc:c.acc||''};
+return `<h2>${id?'ویرایش مشتری':'افزودن مشتری'}</h2>
+<label>نام و نام خانوادگی *</label><input id="n" value="${esc(c.name)}">
+<label>نام فروشگاه *</label><input id="s" value="${esc(c.shop)}">
+<label>نوع کالای فروشگاه *</label><select id="g">${opts(G,c.goods,'انتخاب کنید')}</select>
+<label>شماره تماس اصلی</label><input id="p" inputmode="tel" value="${esc(c.phone)}">
+<label>شماره تماس‌های دیگر (با ویرگول جدا کنید)</label><input id="p2" value="${esc(c.phones2)}">
+<label>ویزیتور مسئول</label><input id="vz" list="vl" value="${esc(c.visitor)}"><datalist id="vl">${M.visitors.map(x=>`<option>${esc(x)}`).join('')}</datalist>
+<label>آدرس کامل</label><textarea id="ad">${esc(c.addr)}</textarea>
+<label>شهر</label><input id="ct" value="${esc(c.city)}"><label>منطقه یا محدوده فروش</label><input id="zn" value="${esc(c.zone)}">
+<button class="btn s" onclick="gps(fillLoc)">ثبت موقعیت فروشگاه</button><button class="btn s" onclick="shareLoc($('#n').value,$('#la').value,$('#lo').value)">اشتراک موقعیت</button>
+<div class="g"><div><label>عرض جغرافیایی</label><input id="la" inputmode="decimal" value="${esc(c.lat)}" oninput="loc={src:'ثبت دستی',at:new Date().toISOString(),acc:''}"></div>
+<div><label>طول جغرافیایی</label><input id="lo" inputmode="decimal" value="${esc(c.lng)}" oninput="loc={src:'ثبت دستی',at:new Date().toISOString(),acc:''}"></div></div>
+<div class="mut" id="lc">${c.locSrc?esc(c.locSrc)+' | '+fa(c.locAt):''}</div>
+<label>وضعیت مشتری</label><select id="st">${opts(S,c.status||'فعال')}</select>
+<label>احتمال خرید آینده</label><select id="pr">${opts(P,c.prob||'نامشخص')}</select>
+<label>تاریخ پیگیری بعدی</label><input id="nx" type="date" value="${esc(c.next)}">
+<label>توضیحات و یادداشت‌ها</label><textarea id="nt">${esc(c.note)}</textarea>
+<p class="mut">وضعیت خرید، دلیل خرید نکردن و تاریخ آخرین مراجعه از سوابق ویزیت محاسبه می‌شوند.</p>
+<button class="btn" onclick="sc('${id||''}')">ذخیره</button><button class="btn s" onclick="go(${id?`'det','${id}'`:`'list'`})">انصراف</button>`}
+async function sc(id){const o={name:gv('n'),shop:gv('s'),goods:gv('g'),phone:nd(gv('p')),phones2:nd(gv('p2')),visitor:gv('vz'),addr:gv('ad'),city:gv('ct'),zone:gv('zn'),lat:gv('la'),lng:gv('lo'),status:gv('st'),prob:gv('pr'),next:gv('nx'),note:gv('nt')};
+if(!o.name||!o.shop||!o.goods)return toast('نام، نام فروشگاه و نوع کالای فروشگاه الزامی است.',1);
+if(o.lat!==''&&(isNaN(+o.lat)||Math.abs(+o.lat)>90)||o.lng!==''&&(isNaN(+o.lng)||Math.abs(+o.lng)>180))return toast('مختصات نامعتبر است. عرض بین ۹۰- تا ۹۰ و طول بین ۱۸۰- تا ۱۸۰ باشد.',1);
+if(o.lat!=='')o.lat=+o.lat;if(o.lng!=='')o.lng=+o.lng;
+const d=o.phone&&live().find(c=>c.id!=id&&c.phone==o.phone);
+if(d&&!confirm('مشتری دیگری با همین شماره وجود دارد: '+d.name+' ('+d.shop+'). با این حال ذخیره شود؟'))return;
+if(id&&!confirm('تغییرات ذخیره شود؟'))return;
+const c=id?C.find(x=>x.id==id):{id:uid(),created:new Date().toISOString()};
+Object.assign(c,o,{locSrc:o.lat===''?'':loc.src||'ثبت دستی',locAt:o.lat===''?'':loc.at,acc:loc.acc,edited:new Date().toISOString(),sync:'pending'});
+if(o.visitor&&!M.visitors.includes(o.visitor)){M.visitors.push(o.visitor);await saveM('visitors')}
+try{await put('c',c);if(!id)C.push(c);toast('ذخیره شد');go('det',c.id)}catch(e){toast('ذخیره ناموفق بود: '+e.message+'. فضای گوشی را بررسی کنید.',1)}}
+/* ---------- جزئیات ---------- */
+function det(id){const c=C.find(x=>x.id==id),vs=vis(id),ll=c.lat!==''&&c.lat!==undefined;
+const map=ll?`https://maps.google.com/?q=${c.lat},${c.lng}`:'';
+return `<h2>${esc(c.name)}</h2><div class="card"><b>${esc(c.shop)}</b>
+<span class="tag">${esc(c.goods||'تعیین‌نشده')}</span><span class="tag">${esc(c.status)}</span><span class="tag">${pst(c)}</span><br>
+تلفن: ${esc(c.phone)||'—'} ${c.phones2?'، '+esc(c.phones2):''}<br>ویزیتور: ${esc(c.visitor)||'—'}<br>
+آدرس: ${esc(c.addr)||'—'} ${esc(c.city)} ${esc(c.zone)}<br>احتمال خرید: ${esc(c.prob)||'—'} | پیگیری بعدی: ${fd(c.next)}<br>
+${ll?`مختصات: ${c.lat}, ${c.lng} (${esc(c.locSrc)})<br>`:'موقعیت ثبت نشده<br>'}
+${c.note?'یادداشت: '+esc(c.note)+'<br>':''}
+<span class="mut">ایجاد: ${fa(c.created)} | آخرین مراجعه: ${vs[0]?fa(vs[0].at):'—'} | آخرین ویرایش: ${fa(c.edited)}<br>شناسه: ${c.id}</span></div>
+<button class="btn" onclick="go('vf','${id}')">ثبت ویزیت جدید</button><button class="btn s" onclick="go('form','${id}')">ویرایش</button>
+${ll?`<button class="btn s" onclick="navigator.clipboard&&navigator.clipboard.writeText('${c.lat},${c.lng}').then(()=>toast('کپی شد'))">کپی مختصات</button>
+<button class="btn s" onclick="shareLoc(C.find(x=>x.id=='${id}').shop,${c.lat},${c.lng})">اشتراک موقعیت</button>`:''}
+<button class="btn d" onclick="dc('${id}')">حذف</button>
+<h3>تاریخچه ویزیت‌ها (${vs.length.toLocaleString('fa-IR')})</h3>
+${vs.map(v=>`<details class="card"><summary>${fa(v.at)} | ${v.bought?'خرید '+money(v.amount):'بدون خرید'}</summary>
+ویزیتور: ${esc(v.visitor)||'—'}<br>${v.end?'پایان: '+fa(v.end)+'<br>':''}${v.bought?'توضیحات سفارش: '+esc(v.orderNote)+'<br>':'دلیل: '+esc(v.reason)+' '+esc(v.reasonOther)+'<br>'}
+احتمال خرید: ${esc(v.prob)} | پیگیری: ${fd(v.next)}<br>${v.note?'یادداشت: '+esc(v.note)+'<br>':''}${v.lat!==''?'مکان: '+v.lat+', '+v.lng+' (دقت '+(v.acc||'؟')+' متر)<br>':''}
+<span class="mut">${v.sync=='pending'?'در انتظار همگام‌سازی':'همگام'} | ${v.id}</span></details>`).join('')||'<p class="mut">هنوز ویزیتی ثبت نشده.</p>'}`}
+async function dc(id){const c=C.find(x=>x.id==id),n=vis(id).length;
+if(!confirm((n?'این مشتری '+n+' سابقه ویزیت دارد؛ سوابق حفظ می‌شود و مشتری قابل بازیابی است.\n':'')+'«'+c.name+'» حذف شود؟'))return;
+c.del=true;c.delAt=new Date().toISOString();c.sync='pending';await put('c',c);toast('حذف شد. از «بیشتر» قابل بازیابی است.');go('list')}
+/* ---------- فرم ویزیت ---------- */
+function vf(id){const c=C.find(x=>x.id==id),t=new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16);loc={};
+return `<h2>ثبت ویزیت</h2><div class="card"><b>${esc(c.name)}</b>${esc(c.shop)}</div>
+<label>ویزیتور</label><input id="vz" list="vl" value="${esc(c.visitor)}"><datalist id="vl">${M.visitors.map(x=>`<option>${esc(x)}`).join('')}</datalist>
+<label>تاریخ و ساعت مراجعه</label><input id="at" type="datetime-local" value="${t}">
+<label>زمان پایان (اختیاری)</label><input id="en" type="datetime-local">
+<label>نتیجه مراجعه *</label><select id="rs" onchange="$('#bw').hidden=this.value!='1';$('#nb').hidden=this.value!='0'"><option value="">انتخاب کنید</option><option value="1">خرید انجام شد</option><option value="0">خرید انجام نشد</option></select>
+<div id="bw" hidden><label>مبلغ سفارش (ریال)</label><input id="am" inputmode="numeric"><label>توضیحات سفارش</label><textarea id="on"></textarea></div>
+<div id="nb" hidden><label>دلیل خرید نکردن *</label><select id="rn">${opts(M.reasons,'','انتخاب کنید')}</select><label>توضیح (برای «سایر»)</label><input id="ro"></div>
+<label>احتمال خرید آینده</label><select id="pr">${opts(P,c.prob||'نامشخص')}</select>
+<label>تاریخ پیگیری بعدی</label><input id="nx" type="date">
+<label>یادداشت ویزیتور</label><textarea id="nt"></textarea>
+<button class="btn s" onclick="gps((a,b,k)=>{loc={lat:a,lng:b,acc:k,at:new Date().toISOString()};$('#lc').textContent=a.toFixed(6)+', '+b.toFixed(6)+' | دقت '+k+' متر'})">ثبت موقعیت فعلی ویزیت</button>
+<div class="mut" id="lc"></div>
+<button class="btn" onclick="sv('${id}')">ذخیره ویزیت</button><button class="btn s" onclick="go('det','${id}')">انصراف</button>`}
+async function sv(id){const c=C.find(x=>x.id==id),rs=gv('rs'),am=nd(gv('am'));
+if(rs==='')return toast('نتیجه مراجعه را انتخاب کنید.',1);
+if(rs=='1'&&am!==''&&(isNaN(+am)||+am<0))return toast('مبلغ سفارش نامعتبر است.',1);
+if(rs=='0'&&!gv('rn'))return toast('دلیل خرید نکردن را انتخاب کنید.',1);
+if(rs=='0'&&gv('rn')=='سایر'&&!gv('ro'))return toast('برای «سایر» توضیح بنویسید.',1);
+if(!gv('at'))return toast('تاریخ مراجعه را وارد کنید.',1);
+const v={id:uid(),cid:id,name:c.name,shop:c.shop,visitor:gv('vz'),at:new Date(gv('at')).toISOString(),end:gv('en')?new Date(gv('en')).toISOString():'',
+bought:rs=='1',amount:rs=='1'&&am!==''?+am:0,orderNote:rs=='1'?gv('on'):'',reason:rs=='0'?gv('rn'):'',reasonOther:rs=='0'?gv('ro'):'',
+prob:gv('pr'),next:gv('nx'),note:gv('nt'),lat:loc.lat??'',lng:loc.lng??'',acc:loc.acc||'',gpsAt:loc.at||'',gpsOk:loc.lat!==undefined?'GPS':'ثبت نشده',sync:'pending'};
+try{await put('v',v);V.push(v);c.prob=v.prob;if(v.next)c.next=v.next;c.sync='pending';await put('c',c);toast('ویزیت ذخیره شد');go('det',id)}
+catch(e){toast('ذخیره ناموفق بود: '+e.message,1)}}
+/* ---------- گزارش ---------- */
+function rep(){return `<h2>گزارش عملکرد فروش</h2><div class="g"><div><label>از تاریخ</label><input type="date" id="f1" onchange="rp()"></div><div><label>تا تاریخ</label><input type="date" id="f2" onchange="rp()"></div>
+<select id="f3" onchange="rp()">${opts(G,'','همه انواع کالا')}</select><select id="f4" onchange="rp()">${opts(M.visitors,'','همه ویزیتورها')}</select></div><div id="R"></div>`}
+function rp(){const a=$('#f1').value,b=$('#f2').value,g=$('#f3').value,w=$('#f4').value,cm=Object.fromEntries(C.map(c=>[c.id,c]));
+const vs=V.filter(v=>(!a||v.at.slice(0,10)>=a)&&(!b||v.at.slice(0,10)<=b)&&(!w||v.visitor==w)&&(!g||(cm[v.cid]||{}).goods==g));
+const sum=l=>({n:l.length,b:l.filter(v=>v.bought).length,s:l.reduce((t,v)=>t+(v.bought?v.amount:0),0)});
+const T=sum(vs),by=(arr,f)=>arr.map(k=>{const s=sum(vs.filter(v=>f(v)==k));return `<tr><td>${esc(k||'—')}</td><td>${s.n}</td><td>${s.b}</td><td>${money(s.s)}</td></tr>`}).join('');
+const L=live().filter(c=>(!g||c.goods==g)&&(!w||c.visitor==w)),nv=L.filter(c=>!vis(c.id).length).length;
+const rs={};vs.filter(v=>!v.bought).forEach(v=>rs[v.reason]=(rs[v.reason]||0)+1);
+$('#R').innerHTML=`<div class="g" style="margin-top:10px"><div class="card"><b>${T.n}</b>ویزیت</div><div class="card"><b>${T.b}</b>خرید</div>
+<div class="card"><b>${T.n?Math.round(T.b/T.n*100):0}٪</b>نرخ خرید</div><div class="card"><b style="font-size:16px">${money(T.s)}</b>مجموع فروش</div></div>
+<p class="mut">مشتریان ثبت‌شده: ${L.length} | هنوز ویزیت‌نشده: ${nv}. مجموع فروش فقط از سفارش‌های ثبت‌شده محاسبه می‌شود.</p>
+<h3>بر اساس نوع کالا</h3><table><tr><th>نوع<th>ویزیت<th>خرید<th>فروش</tr>${by(G,v=>(cm[v.cid]||{}).goods)}</table>
+<h3>بر اساس ویزیتور</h3><table><tr><th>ویزیتور<th>ویزیت<th>خرید<th>فروش</tr>${by([...new Set(vs.map(v=>v.visitor))],v=>v.visitor)}</table>
+<h3>دلایل خرید نکردن</h3><table>${Object.entries(rs).sort((x,y)=>y[1]-x[1]).map(x=>`<tr><td>${esc(x[0])}<td>${x[1]}</tr>`).join('')||'<tr><td class="mut">موردی نیست</tr>'}</table>`}
+/* ---------- CSV ---------- */
+const H=['نام و نام خانوادگی','نام فروشگاه','نوع کالای فروشگاه','شماره تماس اصلی','شماره تماس‌های دیگر','ویزیتور مسئول','آدرس','شهر','منطقه','عرض جغرافیایی','طول جغرافیایی','وضعیت مشتری','احتمال خرید','پیگیری بعدی','یادداشت','شناسه'];
+const K=['name','shop','goods','phone','phones2','visitor','addr','city','zone','lat','lng','status','prob','next','note','id'];
+const csv=r=>'\ufeff'+r.map(x=>x.map(y=>'"'+String(y??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
+function parse(t){const r=[];let a=[],f='',q=false;t=t.replace(/^\ufeff/,'');
+for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c=='"'){if(t[i+1]=='"'){f+='"';i++}else q=false}else f+=c}
+else if(c=='"')q=true;else if(c==','||c==';'||c=='\t'){a.push(f);f=''}else if(c=='\n'||c=='\r'){if(c=='\r'&&t[i+1]=='\n')i++;a.push(f);f='';if(a.some(x=>x))r.push(a);a=[]}else f+=c}
+a.push(f);if(a.some(x=>x))r.push(a);return r}
+function dl(n,t,m){try{const u=URL.createObjectURL(new Blob([t],{type:m||'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download=n;document.body.appendChild(a);a.click();a.remove();toast('فایل آماده شد: '+n)}catch(e){toast('ساخت فایل ناموفق بود: '+e.message,1)}}
+const ex=()=>dl('customers.csv',csv([H].concat(live().map(c=>K.map(k=>c[k])))));
+const exv=()=>dl('visits.csv',csv([['شناسه','مشتری','فروشگاه','ویزیتور','تاریخ','خرید','مبلغ','توضیح سفارش','دلیل','توضیح دلیل','احتمال','پیگیری','یادداشت','عرض','طول','دقت']].concat(V.map(v=>[v.id,v.name,v.shop,v.visitor,v.at,v.bought?'بله':'خیر',v.amount,v.orderNote,v.reason,v.reasonOther,v.prob,v.next,v.note,v.lat,v.lng,v.acc]))));
+function pick(e){const f=e.target.files[0];if(!f)return;
+if(/\.xlsx?$/i.test(f.name))return toast('فایل Excel مستقیم خوانده نمی‌شود. در Excel گزینه Save As > CSV UTF-8 را بزنید و فایل CSV را وارد کنید.',1);
+const r=new FileReader();r.onerror=()=>toast('خواندن فایل ناموفق بود.',1);
+r.onload=()=>{const t=parse(r.result);if(t.length<2)return toast('فایل خالی است یا ردیف داده ندارد.',1);
+const ix=H.map(h=>t[0].map(x=>x.trim()).indexOf(h));if(ix[0]<0||ix[1]<0)return toast('ستون «نام و نام خانوادگی» و «نام فروشگاه» در ردیف اول پیدا نشد. ردیف عنوان باید مثل فایل خروجی همین برنامه باشد.',1);
+const ok=[],bad=[];let dup=0;const ph=new Set(live().map(c=>c.phone).filter(Boolean));
+t.slice(1).forEach(r=>{const o={};K.forEach((k,i)=>o[k]=ix[i]>=0?(r[ix[i]]||'').trim():'');
+if(!o.name||!o.shop)return;o.phone=nd(o.phone);if(/^9\d{9}$/.test(o.phone))o.phone='0'+o.phone;
+if(o.phone&&ph.has(o.phone)){dup++;return}
+if(o.goods&&!G.includes(o.goods))bad.push(o);else ok.push(o)});
+imp={ok,bad};$('#ir').innerHTML=`<div class="card">آماده ورود: <b>${ok.length}</b> | تکراری (رد شد): ${dup} | نوع کالای نامعتبر: <b class="err">${bad.length}</b>
+${bad.length?`<br><span class="mut">مقادیر نامعتبر: ${esc([...new Set(bad.map(x=>x.goods))].join('، '))}</span>`:''}<br>
+<button class="btn" onclick="ci(false)">ورود ${ok.length} مشتری معتبر</button>
+${bad.length?`<button class="btn s" onclick="ci(true)">ورود همه (نوع نامعتبر خالی بماند)</button>`:''}</div>`};
+r.readAsText(f,'utf-8')}
+async function ci(inc){const rows=imp.ok.concat(inc?imp.bad.map(o=>({...o,goods:''})):[]);
+try{for(const o of rows){const n=new Date().toISOString(),c={...o,id:o.id||uid(),status:S.includes(o.status)?o.status:'بالقوه',prob:P.includes(o.prob)?o.prob:'نامشخص',lat:o.lat===''?'':+o.lat,lng:o.lng===''?'':+o.lng,locSrc:o.lat?'ثبت دستی':'',created:n,edited:n,sync:'pending'};
+await put('c',c);C.push(c)}
+toast(rows.length+' مشتری وارد شد');imp=null;go('list')}catch(e){toast('ورود ناموفق بود: '+e.message,1)}}
+/* ---------- پشتیبان ---------- */
+const bk=()=>dl('backup-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({ver:1,c:C,v:V,m:M}),'application/json');
+function rs(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();
+r.onload=async()=>{try{const d=JSON.parse(r.result);if(!d.c||!d.v)throw Error('ساختار فایل نامعتبر است');
+if(!confirm('اطلاعات فعلی ('+C.length+' مشتری، '+V.length+' ویزیت) با فایل پشتیبان ('+d.c.length+' مشتری، '+d.v.length+' ویزیت) جایگزین شود؟ پیشنهاد می‌شود ابتدا از وضعیت فعلی پشتیبان بگیرید.'))return;
+await clr('c');await clr('v');for(const x of d.c)await put('c',x);for(const x of d.v)await put('v',x);Object.assign(M,d.m||{});for(const k of Object.keys(M))await saveM(k);
+await load();toast('بازیابی انجام شد');go('home')}catch(x){toast('بازیابی ناموفق بود: '+x.message,1)}};r.readAsText(f)}
+/* ---------- بیشتر ---------- */
+function more(){const dl_=C.filter(c=>c.del);
+return `<h2>بیشتر</h2>
+<h3>ورود CSV</h3><p class="mut">ردیف اول باید عنوان ستون‌ها مثل فایل خروجی باشد. نوع کالا فقط یکی از چهار گزینه مجاز است.</p><input type="file" accept=".csv,.txt,.xlsx,.xls" onchange="pick(event)"><div id="ir"></div>
+<h3>خروجی</h3><button class="btn s" onclick="ex()">خروجی مشتریان</button><button class="btn s" onclick="exv()">خروجی ویزیت‌ها</button>
+<h3>پشتیبان‌گیری و بازیابی</h3><button class="btn" onclick="bk()">دریافت نسخه پشتیبان</button><p class="mut">بازیابی از فایل پشتیبان (جایگزین اطلاعات فعلی می‌شود):</p><input type="file" accept=".json" onchange="rs(event)">
+<h3>همگام‌سازی ابری</h3><div class="card">وضعیت: ${navigator.onLine?'آنلاین':'آفلاین'}<br>رکوردهای در انتظار ارسال: ${pend().toLocaleString('fa-IR')}<br>آخرین همگام‌سازی موفق: ${M.lastSync?fa(M.lastSync):'هنوز انجام نشده'}<br>
+<span class="err">سرور ابری هنوز متصل نیست؛ داده‌ها فقط روی همین گوشی ذخیره می‌شوند.</span></div>
+<h3>ویزیتورها</h3>${M.visitors.map(x=>`<span class="tag">${esc(x)}</span>`).join('')||'<span class="mut">هنوز ثبت نشده</span>'}
+<input id="nvz" placeholder="نام ویزیتور جدید" style="margin-top:6px"><button class="btn s" onclick="av()">افزودن ویزیتور</button>
+<h3>دلایل خرید نکردن</h3>${M.reasons.map(x=>`<span class="tag">${esc(x)}</span>`).join('')}
+<input id="nrs" placeholder="دلیل جدید" style="margin-top:6px"><button class="btn s" onclick="ar()">افزودن دلیل</button>
+<h3>مشتریان حذف‌شده (${dl_.length.toLocaleString('fa-IR')})</h3>${dl_.map(c=>`<div class="card">${esc(c.name)} | ${esc(c.shop)}<br><button class="btn s" onclick="rc('${c.id}')">بازیابی</button></div>`).join('')}`}
+async function av(){const n=gv('nvz');if(!n||M.visitors.includes(n))return toast('نام خالی یا تکراری است.',1);M.visitors.push(n);await saveM('visitors');go('more')}
+async function ar(){const n=gv('nrs');if(!n||M.reasons.includes(n))return toast('دلیل خالی یا تکراری است.',1);M.reasons.splice(M.reasons.length-1,0,n);await saveM('reasons');go('more')}
+async function rc(id){const c=C.find(x=>x.id==id);if(!confirm('«'+c.name+'» بازیابی شود؟'))return;delete c.del;c.sync='pending';await put('c',c);toast('بازیابی شد');go('more')}
+/* ---------- شروع ---------- */
+if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+init().then(load).then(()=>{navigator.storage&&navigator.storage.persist&&navigator.storage.persist();render()})
+.catch(e=>{$('#v').innerHTML='<p class="err">پایگاه داده باز نشد: '+esc(e&&e.message)+'. ذخیره‌سازی مرورگر یا WebView باید فعال باشد (DOM storage).</p>'});
+</script></body></html>
