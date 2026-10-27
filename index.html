@@ -31,7 +31,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{border-bottom:1px
 <script>
 const G=['فقط ایران‌خودرو','فقط سایپا','هردو','متفرقه'],
 R0=['قیمت','کمبود نقدینگی','موجودی کافی','عدم نیاز فعلی','خرید از تأمین‌کننده دیگر','عدم تمایل مشتری','نبود محصول موردنیاز','مشتری حضور نداشت','مراجعه ناموفق','سایر'],
-P=['کم','متوسط','زیاد','نامشخص'],S=['فعال','غیرفعال','بالقوه'];
+MS=['تلگرام','واتساپ','روبیکا','بله','ایتا'],P=['کم','متوسط','زیاد','نامشخص'],S=['فعال','غیرفعال','بالقوه'];
 let db,C=[],V=[],M={reasons:R0,visitors:[],lastSync:''},tab='home',arg,q='',fg='',fv='',loc={},imp=null;
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -89,8 +89,13 @@ e=>{if(best)return fin();if(done)return;done=true;navigator.geolocation.clearWat
 {enableHighAccuracy:true,timeout:20000,maximumAge:0});t=setTimeout(fin,15000)}
 function fillLoc(a,b,k){if(!$('#la'))return;$('#la').value=a;$('#lo').value=b;loc={src:'GPS',at:new Date().toISOString(),acc:k};$('#lc').textContent='GPS، دقت '+k+' متر'}
 function shareLoc(n,a,b){if(a===''||b===''||isNaN(+a)||isNaN(+b))return toast('ابتدا موقعیت را ثبت کنید.',1);const u='https://maps.google.com/?q='+a+','+b,t=(n?n+'\n':'')+u;
-if(navigator.share)navigator.share({title:n||'موقعیت',text:t}).catch(()=>{});
-else if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>toast('نام و لینک نقشه کپی شد؛ در پیام‌رسان بچسبانید'),()=>prompt('این متن را کپی کنید:',t));else prompt('این متن را کپی کنید:',t)}
+if(navigator.share)navigator.share({title:n||'موقعیت',text:t}).catch(x=>{if(x&&x.name!='AbortError')showShare(t)});else showShare(t)}
+function pm(){const t=nd(gv('pm')).replace(/٫/g,'.').replace(/،/g,','),m=t.match(/(-?\d{1,3}\.\d+)\s*[,\s]\s*(-?\d{1,3}\.\d+)/);
+if(!m)return toast('مختصات پیدا نشد. عدد عرض و طول یا لینک کامل نقشه را بچسبانید (لینک کوتاه پشتیبانی نمی‌شود).',1);
+const a=+m[1],b=+m[2];if(Math.abs(a)>90||Math.abs(b)>180)return toast('مختصات نامعتبر است.',1);
+$('#la').value=a;$('#lo').value=b;loc={src:'ثبت دستی',at:new Date().toISOString(),acc:''};$('#lc').textContent='ثبت دستی از نقشه';toast('مختصات اعمال شد')}
+function showShare(t){const e=encodeURIComponent(t);let d=$('#shr');if(!d){d=document.createElement('div');d.id='shr';d.className='card';$('#v').prepend(d)}
+d.innerHTML=`<b>اشتراک موقعیت</b><a class="btn s" style="text-decoration:none" href="whatsapp://send?text=${e}">واتساپ</a><a class="btn s" style="text-decoration:none" href="tg://msg?text=${e}">تلگرام</a><a class="btn s" style="text-decoration:none" href="sms:?body=${e}">پیامک</a><textarea readonly onclick="this.select()" style="margin-top:8px">${esc(t)}</textarea><span class="mut">یا متن بالا را نگه دارید و کپی کنید.</span>`;scrollTo(0,0)}
 /* ---------- فرم مشتری ---------- */
 function form(id){const c=id?C.find(x=>x.id==id):{};loc={src:c.locSrc||'',at:c.locAt||'',acc:c.acc||''};
 return `<h2>${id?'ویرایش مشتری':'افزودن مشتری'}</h2>
@@ -99,10 +104,12 @@ return `<h2>${id?'ویرایش مشتری':'افزودن مشتری'}</h2>
 <label>نوع کالای فروشگاه *</label><select id="g">${opts(G,c.goods,'انتخاب کنید')}</select>
 <label>شماره تماس اصلی</label><input id="p" inputmode="tel" value="${esc(c.phone)}">
 <label>شماره تماس‌های دیگر (با ویرگول جدا کنید)</label><input id="p2" value="${esc(c.phones2)}">
+<label>عضویت در پیام‌رسان‌ها (چند گزینه)</label><div class="card" style="margin:0">${MS.map(m=>`<label style="display:flex;align-items:center;gap:8px;margin:4px 0;font-size:16px"><input type="checkbox" class="mg" value="${m}" style="width:22px;min-height:22px" ${(c.msgs||[]).includes(m)?'checked':''}>${m}</label>`).join('')}</div>
 <label>ویزیتور مسئول</label><input id="vz" list="vl" value="${esc(c.visitor)}"><datalist id="vl">${M.visitors.map(x=>`<option>${esc(x)}`).join('')}</datalist>
 <label>آدرس کامل</label><textarea id="ad">${esc(c.addr)}</textarea>
 <label>شهر</label><input id="ct" value="${esc(c.city)}"><label>منطقه یا محدوده فروش</label><input id="zn" value="${esc(c.zone)}">
 <button class="btn s" onclick="gps(fillLoc)">ثبت موقعیت فروشگاه</button><button class="btn s" onclick="shareLoc($('#n').value,$('#la').value,$('#lo').value)">اشتراک موقعیت</button>
+<label>یا مختصات و لینک نقشه را بچسبانید (از نقشه گوشی کپی کنید)</label><input id="pm" placeholder="مثلاً 35.7000, 51.4000 یا لینک کامل نقشه"><button class="btn s" onclick="pm()">اعمال مختصات</button><button class="btn s" onclick="location.href='geo:0,0?q='+encodeURIComponent($('#s').value||'')">باز کردن برنامه نقشه</button>
 <div class="g"><div><label>عرض جغرافیایی</label><input id="la" inputmode="decimal" value="${esc(c.lat)}" oninput="loc={src:'ثبت دستی',at:new Date().toISOString(),acc:''}"></div>
 <div><label>طول جغرافیایی</label><input id="lo" inputmode="decimal" value="${esc(c.lng)}" oninput="loc={src:'ثبت دستی',at:new Date().toISOString(),acc:''}"></div></div>
 <div class="mut" id="lc">${c.locSrc?esc(c.locSrc)+' | '+fa(c.locAt):''}</div>
@@ -112,7 +119,7 @@ return `<h2>${id?'ویرایش مشتری':'افزودن مشتری'}</h2>
 <label>توضیحات و یادداشت‌ها</label><textarea id="nt">${esc(c.note)}</textarea>
 <p class="mut">وضعیت خرید، دلیل خرید نکردن و تاریخ آخرین مراجعه از سوابق ویزیت محاسبه می‌شوند.</p>
 <button class="btn" onclick="sc('${id||''}')">ذخیره</button><button class="btn s" onclick="go(${id?`'det','${id}'`:`'list'`})">انصراف</button>`}
-async function sc(id){const o={name:gv('n'),shop:gv('s'),goods:gv('g'),phone:nd(gv('p')),phones2:nd(gv('p2')),visitor:gv('vz'),addr:gv('ad'),city:gv('ct'),zone:gv('zn'),lat:gv('la'),lng:gv('lo'),status:gv('st'),prob:gv('pr'),next:gv('nx'),note:gv('nt')};
+async function sc(id){const o={name:gv('n'),shop:gv('s'),goods:gv('g'),phone:nd(gv('p')),phones2:nd(gv('p2')),msgs:[...document.querySelectorAll('.mg:checked')].map(x=>x.value),visitor:gv('vz'),addr:gv('ad'),city:gv('ct'),zone:gv('zn'),lat:gv('la'),lng:gv('lo'),status:gv('st'),prob:gv('pr'),next:gv('nx'),note:gv('nt')};
 if(!o.name||!o.shop||!o.goods)return toast('نام، نام فروشگاه و نوع کالای فروشگاه الزامی است.',1);
 if(o.lat!==''&&(isNaN(+o.lat)||Math.abs(+o.lat)>90)||o.lng!==''&&(isNaN(+o.lng)||Math.abs(+o.lng)>180))return toast('مختصات نامعتبر است. عرض بین ۹۰- تا ۹۰ و طول بین ۱۸۰- تا ۱۸۰ باشد.',1);
 if(o.lat!=='')o.lat=+o.lat;if(o.lng!=='')o.lng=+o.lng;
@@ -128,7 +135,7 @@ function det(id){const c=C.find(x=>x.id==id),vs=vis(id),ll=c.lat!==''&&c.lat!==u
 const map=ll?`https://maps.google.com/?q=${c.lat},${c.lng}`:'';
 return `<h2>${esc(c.name)}</h2><div class="card"><b>${esc(c.shop)}</b>
 <span class="tag">${esc(c.goods||'تعیین‌نشده')}</span><span class="tag">${esc(c.status)}</span><span class="tag">${pst(c)}</span><br>
-تلفن: ${esc(c.phone)||'—'} ${c.phones2?'، '+esc(c.phones2):''}<br>ویزیتور: ${esc(c.visitor)||'—'}<br>
+تلفن: ${esc(c.phone)||'—'} ${c.phones2?'، '+esc(c.phones2):''}<br>پیام‌رسان‌ها: ${(c.msgs||[]).join('، ')||'—'}<br>ویزیتور: ${esc(c.visitor)||'—'}<br>
 آدرس: ${esc(c.addr)||'—'} ${esc(c.city)} ${esc(c.zone)}<br>احتمال خرید: ${esc(c.prob)||'—'} | پیگیری بعدی: ${fd(c.next)}<br>
 ${ll?`مختصات: ${c.lat}, ${c.lng} (${esc(c.locSrc)})<br>`:'موقعیت ثبت نشده<br>'}
 ${c.note?'یادداشت: '+esc(c.note)+'<br>':''}
@@ -186,34 +193,74 @@ $('#R').innerHTML=`<div class="g" style="margin-top:10px"><div class="card"><b>$
 <h3>بر اساس نوع کالا</h3><table><tr><th>نوع<th>ویزیت<th>خرید<th>فروش</tr>${by(G,v=>(cm[v.cid]||{}).goods)}</table>
 <h3>بر اساس ویزیتور</h3><table><tr><th>ویزیتور<th>ویزیت<th>خرید<th>فروش</tr>${by([...new Set(vs.map(v=>v.visitor))],v=>v.visitor)}</table>
 <h3>دلایل خرید نکردن</h3><table>${Object.entries(rs).sort((x,y)=>y[1]-x[1]).map(x=>`<tr><td>${esc(x[0])}<td>${x[1]}</tr>`).join('')||'<tr><td class="mut">موردی نیست</tr>'}</table>`}
+/* XLSX */
+const crcT=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc=b=>{let c=~0;for(let i=0;i<b.length;i++)c=crcT[(c^b[i])&255]^(c>>>8);return ~c>>>0};
+const XM='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+function zip(files){const te=new TextEncoder(),ch=[],cd=[],u16=n=>[n&255,n>>8&255],u32=n=>[n&255,n>>8&255,n>>16&255,n>>>24&255];let off=0;
+files.forEach(([name,txt])=>{const nb=te.encode(name),d=te.encode(txt),c=crc(d);
+const h=[...u32(0x04034b50),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(c),...u32(d.length),...u32(d.length),...u16(nb.length),...u16(0)];
+ch.push(new Uint8Array(h),nb,d);
+cd.push(new Uint8Array([...u32(0x02014b50),...u16(20),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(c),...u32(d.length),...u32(d.length),...u16(nb.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off)]),nb);
+off+=h.length+nb.length+d.length});
+const cs=cd.reduce((a,x)=>a+x.length,0),end=new Uint8Array([...u32(0x06054b50),...u16(0),...u16(0),...u16(files.length),...u16(files.length),...u32(cs),...u32(off),...u16(0)]);
+return new Blob([...ch,...cd,end],{type:XM})}
+const colN=i=>{let s='';i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26)}return s};
+const xe=s=>String(s??'').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g,'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function xlsx(rows){const N='http://schemas.openxmlformats.org/',H='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',M=N+'spreadsheetml/2006/main',R=N+'officeDocument/2006/relationships',P=N+'package/2006/relationships';
+const sh=rows.map((r,i)=>`<row r="${i+1}">`+r.map((v,j)=>`<c r="${colN(j)}${i+1}" t="inlineStr"><is><t xml:space="preserve">${xe(v)}</t></is></c>`).join('')+'</row>').join('');
+return zip([['[Content_Types].xml',H+`<Types xmlns="${N}package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="${XM}.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`],
+['_rels/.rels',H+`<Relationships xmlns="${P}"><Relationship Id="rId1" Type="${R}/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+['xl/workbook.xml',H+`<workbook xmlns="${M}" xmlns:r="${R}"><bookViews><workbookView/></bookViews><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>`],
+['xl/_rels/workbook.xml.rels',H+`<Relationships xmlns="${P}"><Relationship Id="rId1" Type="${R}/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`],
+['xl/worksheets/sheet1.xml',H+`<worksheet xmlns="${M}"><sheetViews><sheetView rightToLeft="1" workbookViewId="0"/></sheetViews><sheetData>${sh}</sheetData></worksheet>`]])}
+async function unz(buf){const u=new Uint8Array(buf),dv=new DataView(buf);let e=u.length-22;while(e>=0&&dv.getUint32(e,true)!=0x06054b50)e--;
+if(e<0)throw Error('فایل Excel معتبر نیست');const n=dv.getUint16(e+10,true);let p=dv.getUint32(e+16,true);const out={};
+for(let i=0;i<n;i++){const m=dv.getUint16(p+10,true),cs=dv.getUint32(p+20,true),nl=dv.getUint16(p+28,true),el=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),lo=dv.getUint32(p+42,true),name=new TextDecoder().decode(u.subarray(p+46,p+46+nl));p+=46+nl+el+cl;
+if(!/^xl\/(sharedStrings|worksheets\/sheet\d+)\.xml$/.test(name))continue;
+const s=lo+30+dv.getUint16(lo+26,true)+dv.getUint16(lo+28,true),d=u.subarray(s,s+cs);let t;
+if(m==0)t=d;else if(m==8)t=new Uint8Array(await new Response(new Blob([d]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());else continue;
+out[name]=new TextDecoder().decode(t)}return out}
+async function xread(buf){const f=await unz(buf),k=Object.keys(f).filter(x=>/worksheets\/sheet\d+\.xml$/.test(x)).sort((a,b)=>a.localeCompare(b,'en',{numeric:true}));
+if(!k.length)throw Error('برگه‌ای در فایل پیدا نشد');
+const un=s=>s.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&#(\d+);/g,(m,d)=>String.fromCharCode(d)).replace(/&amp;/g,'&'),
+tx=b=>un([...b.matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map(x=>x[1]).join('')),ss=[];
+(f['xl/sharedStrings.xml']||'').replace(/<si[^>]*>([\s\S]*?)<\/si>/g,(m,b)=>{ss.push(tx(b))});
+const rows=[];f[k[0]].replace(/<row[^>]*>([\s\S]*?)<\/row>/g,(m,b)=>{const r=[];
+b.replace(/<c\s([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g,(m2,at,body)=>{const ref=/r="([A-Z]+)\d+"/.exec(at),ty=/t="(\w+)"/.exec(at);if(!ref)return;
+let ci=0;for(const ch of ref[1])ci=ci*26+ch.charCodeAt(0)-64;ci--;body=body||'';let v='';
+if(ty&&ty[1]=='inlineStr')v=tx(body);else{const m3=/<v>([\s\S]*?)<\/v>/.exec(body);v=m3?un(m3[1]):'';if(ty&&ty[1]=='s')v=ss[+v]??''}r[ci]=v});
+rows.push(Array.from(r,x=>x??''))});return rows.filter(r=>r.some(x=>String(x).trim()))}
+/* /XLSX */
 /* ---------- CSV ---------- */
-const H=['نام و نام خانوادگی','نام فروشگاه','نوع کالای فروشگاه','شماره تماس اصلی','شماره تماس‌های دیگر','ویزیتور مسئول','آدرس','شهر','منطقه','عرض جغرافیایی','طول جغرافیایی','وضعیت مشتری','احتمال خرید','پیگیری بعدی','یادداشت','شناسه'];
-const K=['name','shop','goods','phone','phones2','visitor','addr','city','zone','lat','lng','status','prob','next','note','id'];
+const H=['نام و نام خانوادگی','نام فروشگاه','نوع کالای فروشگاه','شماره تماس اصلی','شماره تماس‌های دیگر','پیام‌رسان‌ها','ویزیتور مسئول','آدرس','شهر','منطقه','عرض جغرافیایی','طول جغرافیایی','وضعیت مشتری','احتمال خرید','پیگیری بعدی','یادداشت','شناسه'];
+const K=['name','shop','goods','phone','phones2','msgs','visitor','addr','city','zone','lat','lng','status','prob','next','note','id'];
 const csv=r=>'\ufeff'+r.map(x=>x.map(y=>'"'+String(y??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
 function parse(t){const r=[];let a=[],f='',q=false;t=t.replace(/^\ufeff/,'');
 for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c=='"'){if(t[i+1]=='"'){f+='"';i++}else q=false}else f+=c}
 else if(c=='"')q=true;else if(c==','||c==';'||c=='\t'){a.push(f);f=''}else if(c=='\n'||c=='\r'){if(c=='\r'&&t[i+1]=='\n')i++;a.push(f);f='';if(a.some(x=>x))r.push(a);a=[]}else f+=c}
 a.push(f);if(a.some(x=>x))r.push(a);return r}
-function dl(n,t,m){try{const u=URL.createObjectURL(new Blob([t],{type:m||'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download=n;document.body.appendChild(a);a.click();a.remove();toast('فایل آماده شد: '+n)}catch(e){toast('ساخت فایل ناموفق بود: '+e.message,1)}}
-const ex=()=>dl('customers.csv',csv([H].concat(live().map(c=>K.map(k=>c[k])))));
-const exv=()=>dl('visits.csv',csv([['شناسه','مشتری','فروشگاه','ویزیتور','تاریخ','خرید','مبلغ','توضیح سفارش','دلیل','توضیح دلیل','احتمال','پیگیری','یادداشت','عرض','طول','دقت']].concat(V.map(v=>[v.id,v.name,v.shop,v.visitor,v.at,v.bought?'بله':'خیر',v.amount,v.orderNote,v.reason,v.reasonOther,v.prob,v.next,v.note,v.lat,v.lng,v.acc]))));
+function dl(n,t,m){try{const u=URL.createObjectURL((t instanceof Blob?t:new Blob([t],{type:m||'text/csv;charset=utf-8'}))),a=document.createElement('a');a.href=u;a.download=n;document.body.appendChild(a);a.click();a.remove();toast('فایل آماده شد: '+n)}catch(e){toast('ساخت فایل ناموفق بود: '+e.message,1)}}
+const cr=()=>[H].concat(live().map(c=>K.map(k=>Array.isArray(c[k])?c[k].join('، '):c[k])));
+const vr=()=>[['شناسه','مشتری','فروشگاه','ویزیتور','تاریخ','خرید','مبلغ','توضیح سفارش','دلیل','توضیح دلیل','احتمال','پیگیری','یادداشت','عرض','طول','دقت']].concat(V.map(v=>[v.id,v.name,v.shop,v.visitor,v.at,v.bought?'بله':'خیر',v.amount,v.orderNote,v.reason,v.reasonOther,v.prob,v.next,v.note,v.lat,v.lng,v.acc]));
+const ex=()=>dl('customers.csv',csv(cr())),exv=()=>dl('visits.csv',csv(vr())),exX=()=>dl('customers.xlsx',xlsx(cr()),XM),exvX=()=>dl('visits.xlsx',xlsx(vr()),XM);
 function pick(e){const f=e.target.files[0];if(!f)return;
-if(/\.xlsx?$/i.test(f.name))return toast('فایل Excel مستقیم خوانده نمی‌شود. در Excel گزینه Save As > CSV UTF-8 را بزنید و فایل CSV را وارد کنید.',1);
-const r=new FileReader();r.onerror=()=>toast('خواندن فایل ناموفق بود.',1);
-r.onload=()=>{const t=parse(r.result);if(t.length<2)return toast('فایل خالی است یا ردیف داده ندارد.',1);
-const ix=H.map(h=>t[0].map(x=>x.trim()).indexOf(h));if(ix[0]<0||ix[1]<0)return toast('ستون «نام و نام خانوادگی» و «نام فروشگاه» در ردیف اول پیدا نشد. ردیف عنوان باید مثل فایل خروجی همین برنامه باشد.',1);
+if(/\.xls$/i.test(f.name))return toast('فرمت قدیمی xls پشتیبانی نمی‌شود. در Excel گزینه Save As را بزنید و xlsx یا CSV UTF-8 را انتخاب کنید.',1);
+if(/\.xlsx$/i.test(f.name)){f.arrayBuffer().then(xread).then(hi).catch(x=>toast('خواندن فایل Excel ناموفق بود: '+x.message,1));return}
+const r=new FileReader();r.onerror=()=>toast('خواندن فایل ناموفق بود.',1);r.onload=()=>hi(parse(r.result));r.readAsText(f,'utf-8')}
+function hi(t){if(t.length<2)return toast('فایل خالی است یا ردیف داده ندارد.',1);
+const ix=H.map(h=>t[0].map(x=>String(x).trim()).indexOf(h));if(ix[0]<0||ix[1]<0)return toast('ستون «نام و نام خانوادگی» و «نام فروشگاه» در ردیف اول پیدا نشد. ردیف عنوان باید مثل فایل خروجی همین برنامه باشد.',1);
 const ok=[],bad=[];let dup=0;const ph=new Set(live().map(c=>c.phone).filter(Boolean));
-t.slice(1).forEach(r=>{const o={};K.forEach((k,i)=>o[k]=ix[i]>=0?(r[ix[i]]||'').trim():'');
+t.slice(1).forEach(r=>{const o={};K.forEach((k,i)=>o[k]=ix[i]>=0?String(r[ix[i]]??'').trim():'');
 if(!o.name||!o.shop)return;o.phone=nd(o.phone);if(/^9\d{9}$/.test(o.phone))o.phone='0'+o.phone;
 if(o.phone&&ph.has(o.phone)){dup++;return}
 if(o.goods&&!G.includes(o.goods))bad.push(o);else ok.push(o)});
 imp={ok,bad};$('#ir').innerHTML=`<div class="card">آماده ورود: <b>${ok.length}</b> | تکراری (رد شد): ${dup} | نوع کالای نامعتبر: <b class="err">${bad.length}</b>
 ${bad.length?`<br><span class="mut">مقادیر نامعتبر: ${esc([...new Set(bad.map(x=>x.goods))].join('، '))}</span>`:''}<br>
 <button class="btn" onclick="ci(false)">ورود ${ok.length} مشتری معتبر</button>
-${bad.length?`<button class="btn s" onclick="ci(true)">ورود همه (نوع نامعتبر خالی بماند)</button>`:''}</div>`};
-r.readAsText(f,'utf-8')}
+${bad.length?`<button class="btn s" onclick="ci(true)">ورود همه (نوع نامعتبر خالی بماند)</button>`:''}</div>`}
 async function ci(inc){const rows=imp.ok.concat(inc?imp.bad.map(o=>({...o,goods:''})):[]);
-try{for(const o of rows){const n=new Date().toISOString(),c={...o,id:o.id||uid(),status:S.includes(o.status)?o.status:'بالقوه',prob:P.includes(o.prob)?o.prob:'نامشخص',lat:o.lat===''?'':+o.lat,lng:o.lng===''?'':+o.lng,locSrc:o.lat?'ثبت دستی':'',created:n,edited:n,sync:'pending'};
+try{for(const o of rows){const n=new Date().toISOString(),c={...o,msgs:(o.msgs||'').split(/[،,;|]/).map(x=>x.trim()).filter(x=>MS.includes(x)),id:o.id||uid(),status:S.includes(o.status)?o.status:'بالقوه',prob:P.includes(o.prob)?o.prob:'نامشخص',lat:o.lat===''?'':+o.lat,lng:o.lng===''?'':+o.lng,locSrc:o.lat?'ثبت دستی':'',created:n,edited:n,sync:'pending'};
 await put('c',c);C.push(c)}
 toast(rows.length+' مشتری وارد شد');imp=null;go('list')}catch(e){toast('ورود ناموفق بود: '+e.message,1)}}
 /* ---------- پشتیبان ---------- */
@@ -226,8 +273,8 @@ await load();toast('بازیابی انجام شد');go('home')}catch(x){toast('
 /* ---------- بیشتر ---------- */
 function more(){const dl_=C.filter(c=>c.del);
 return `<h2>بیشتر</h2>
-<h3>ورود CSV</h3><p class="mut">ردیف اول باید عنوان ستون‌ها مثل فایل خروجی باشد. نوع کالا فقط یکی از چهار گزینه مجاز است.</p><input type="file" accept=".csv,.txt,.xlsx,.xls" onchange="pick(event)"><div id="ir"></div>
-<h3>خروجی</h3><button class="btn s" onclick="ex()">خروجی مشتریان</button><button class="btn s" onclick="exv()">خروجی ویزیت‌ها</button>
+<h3>ورود Excel و CSV</h3><p class="mut">فایل .xlsx یا .csv؛ ردیف اول باید عنوان ستون‌ها مثل فایل خروجی همین برنامه باشد. نوع کالا فقط یکی از چهار گزینه مجاز است.</p><input type="file" accept=".csv,.txt,.xlsx,.xls" onchange="pick(event)"><div id="ir"></div>
+<h3>خروجی</h3><button class="btn" onclick="exX()">Excel مشتریان</button><button class="btn" onclick="exvX()">Excel ویزیت‌ها</button><button class="btn s" onclick="ex()">CSV مشتریان</button><button class="btn s" onclick="exv()">CSV ویزیت‌ها</button>
 <h3>پشتیبان‌گیری و بازیابی</h3><button class="btn" onclick="bk()">دریافت نسخه پشتیبان</button><p class="mut">بازیابی از فایل پشتیبان (جایگزین اطلاعات فعلی می‌شود):</p><input type="file" accept=".json" onchange="rs(event)">
 <h3>همگام‌سازی ابری</h3><div class="card">وضعیت: ${navigator.onLine?'آنلاین':'آفلاین'}<br>رکوردهای در انتظار ارسال: ${pend().toLocaleString('fa-IR')}<br>آخرین همگام‌سازی موفق: ${M.lastSync?fa(M.lastSync):'هنوز انجام نشده'}<br>
 <span class="err">سرور ابری هنوز متصل نیست؛ داده‌ها فقط روی همین گوشی ذخیره می‌شوند.</span></div>
